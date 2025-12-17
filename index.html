@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash Pig: The Debt Collector</title>
+    <style>
+        body {
+            background-color: #1a1a1a; color: white; font-family: 'Segoe UI', sans-serif;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px;
+        }
+        #tally-container { background: #b71c1c; padding: 15px 30px; border-radius: 15px; margin-bottom: 20px; border: 3px solid #ff5252; text-align: center; width: 220px; }
+        #total-debt { font-size: 40px; font-weight: bold; color: #fff; margin: 0; }
+        
+        #amount-display { font-size: 80px; font-weight: bold; color: #4caf50; margin: 15px 0; text-shadow: 0 0 20px rgba(76, 175, 80, 0.5); }
+        
+        .coin-box { perspective: 1000px; height: 150px; margin: 15px; }
+        #pig-coin {
+            width: 130px; height: 130px; border-radius: 50%;
+            background: #f48fb1; border: 6px solid #ad1457;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 70px; transition: transform 0.6s ease-out;
+        }
+
+        .controls { display: flex; flex-direction: column; gap: 12px; width: 250px; }
+        button { padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 10px; transition: 0.2s; }
+        .btn-spin { background: #4caf50; color: white; }
+        .btn-flip { background: #ff9800; color: white; display: none; }
+        .btn-reset { background: transparent; color: #666; font-size: 14px; text-decoration: underline; margin-top: 20px; border-radius: 5px; padding: 5px; }
+        .btn-reset:hover { color: #ff5252; }
+        button:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+        #history { margin-top: 25px; width: 100%; max-width: 300px; color: #aaa; font-size: 14px; }
+        .history-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 5px 0; }
+        #msg { height: 24px; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <div id="tally-container">
+        <p style="margin:0; font-size: 14px; text-transform: uppercase;">Total Debt Owed</p>
+        <p id="total-debt">$0</p>
+    </div>
+
+    <div id="amount-display">$0</div>
+    <p id="msg">Spin to set the stakes!</p>
+
+    <div class="coin-box">
+        <div id="pig-coin">🐷</div>
+    </div>
+
+    <div class="controls">
+        <button id="spinBtn" class="btn-spin" onclick="runCounter()">GENERATE AMOUNT</button>
+        <button id="flipBtn" class="btn-flip" onclick="flipPig()">FLIP FOR YOUR LIFE</button>
+    </div>
+
+    <button class="btn-reset" onclick="resetGame()">Reset All Debt</button>
+
+    <div id="history">
+        <p><b>Recent Losses:</b></p>
+        <div id="history-list"></div>
+    </div>
+
+    <script>
+        let currentAmount = 0;
+        let totalDebt = 0;
+
+        function runCounter() {
+            const amountEl = document.getElementById('amount-display');
+            const spinBtn = document.getElementById('spinBtn');
+            const flipBtn = document.getElementById('flipBtn');
+            const msg = document.getElementById('msg');
+            
+            spinBtn.disabled = true;
+            flipBtn.style.display = "none";
+            msg.innerText = "Calculating...";
+
+            let count = 0;
+            let interval = setInterval(() => {
+                let temp = (Math.floor(Math.random() * 30) + 1) * 5;
+                amountEl.innerText = "$" + temp;
+                count++;
+
+                if (count > 25) {
+                    clearInterval(interval);
+                    currentAmount = temp;
+                    msg.innerText = "Pig Face = Safe | Pig Butt = Pay!";
+                    flipBtn.style.display = "block";
+                    spinBtn.disabled = false;
+                }
+            }, 40);
+        }
+
+        function flipPig() {
+            const coin = document.getElementById('pig-coin');
+            const flipBtn = document.getElementById('flipBtn');
+            const totalDebtEl = document.getElementById('total-debt');
+            const msg = document.getElementById('msg');
+            
+            flipBtn.disabled = true;
+            coin.style.transform = "rotateY(1440deg)"; 
+
+            setTimeout(() => {
+                const isHeads = Math.random() < 0.5;
+                coin.style.transform = "rotateY(0deg)";
+                
+                if (isHeads) {
+                    coin.innerText = "🐷";
+                    msg.innerText = "SAFE! You escaped the pig.";
+                } else {
+                    coin.innerText = "🍑";
+                    totalDebt += currentAmount;
+                    totalDebtEl.innerText = "$" + totalDebt;
+                    msg.innerText = "UNLUCKY! You owe $" + currentAmount;
+                    addToHistory(currentAmount);
+                }
+                flipBtn.style.display = "none";
+                flipBtn.disabled = false;
+            }, 600);
+        }
+
+        function addToHistory(amt) {
+            const list = document.getElementById('history-list');
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.innerHTML = `<span>Loss</span> <span>$${amt}</span>`;
+            list.prepend(item);
+        }
+
+        function resetGame() {
+            if (confirm("Are you sure you want to clear your debt?")) {
+                totalDebt = 0;
+                document.getElementById('total-debt').innerText = "$0";
+                document.getElementById('history-list').innerHTML = "";
+                document.getElementById('amount-display').innerText = "$0";
+                document.getElementById('msg').innerText = "Game Reset!";
+            }
+        }
+    </script>
+</body>
+</html>
