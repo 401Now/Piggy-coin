@@ -1,34 +1,178 @@
-function flipPig() {
-    const coin = document.getElementById('pig-coin');
-    const flipBtn = document.getElementById('flipBtn');
-    const totalDebtEl = document.getElementById('total-debt');
-    const msg = document.getElementById('msg');
-    
-    flipBtn.disabled = true;
-    coin.style.transform = "rotateY(1440deg)"; 
-
-    setTimeout(() => {
-        // --- BIASED PROBABILITY LOGIC ---
-        // Math.random() generates a number between 0 and 1.
-        // If it's 0.58 or higher (42% chance), you get Heads (Safe).
-        // If it's less than 0.58 (58% chance), you get Tails (Pay).
-        const isTails = Math.random() < 0.58; 
-        
-        coin.style.transform = "rotateY(0deg)";
-        
-        if (!isTails) { // Heads / Safe
-            coin.innerText = "🐷";
-            msg.innerText = "SAFE! The pig showed mercy.";
-        } else { // Tails / Pay
-            coin.innerText = "🍑";
-            totalDebt += currentAmount;
-            totalDebtEl.innerText = "$" + totalDebt;
-            msg.innerText = "Ouch! You owe $" + currentAmount;
-            addToHistory(currentAmount);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash Pig: The Debt Collector</title>
+    <style>
+        body {
+            background-color: #0a0a0a; color: white; font-family: 'Segoe UI', sans-serif;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px;
         }
+        #tally-container { background: #b71c1c; padding: 15px 30px; border-radius: 15px; margin-bottom: 20px; border: 3px solid #ff5252; text-align: center; width: 220px; box-shadow: 0 0 20px rgba(183, 28, 28, 0.4); }
+        #total-debt { font-size: 40px; font-weight: bold; color: #fff; margin: 0; }
         
-        updatePaymentLinks();
-        flipBtn.style.display = "none";
-        flipBtn.disabled = false;
-    }, 600);
-}
+        #amount-display { font-size: 80px; font-weight: bold; color: #4caf50; margin: 15px 0; text-shadow: 0 0 20px rgba(76, 175, 80, 0.5); }
+        
+        .coin-box { perspective: 1000px; height: 150px; margin: 15px; }
+        #pig-coin {
+            width: 130px; height: 130px; border-radius: 50%;
+            background: #f48fb1; border: 6px solid #ad1457;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 70px; transition: transform 0.6s ease-out;
+        }
+
+        .controls { display: flex; flex-direction: column; gap: 12px; width: 250px; }
+        button { padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 10px; transition: 0.2s; }
+        .btn-spin { background: #4caf50; color: white; }
+        .btn-flip { background: #ff9800; color: white; display: none; }
+        .btn-reset { background: transparent; color: #666; font-size: 12px; text-decoration: underline; margin-top: 10px; border: none; cursor: pointer; }
+        
+        .pay-section { display: none; margin-top: 25px; flex-direction: column; gap: 12px; align-items: center; width: 100%; max-width: 300px; animation: fadeIn 0.5s ease-out; }
+        .pay-btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 16px; border-radius: 35px; text-decoration: none; font-weight: bold; font-size: 1rem; color: white; }
+        .venmo-btn { background: #008CFF; }
+        .crypto-btn { background: #2775ca; border: 1px solid #4a90e2; }
+        .copy-info { font-size: 0.7rem; color: #555; margin-top: 5px; cursor: pointer; text-decoration: underline; }
+
+        #history { margin-top: 25px; width: 100%; max-width: 300px; color: #666; font-size: 14px; }
+        .history-item { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 5px 0; }
+        #msg { height: 24px; font-weight: 500; color: #ff9800; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="tally-container">
+        <p style="margin:0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Current Total Debt</p>
+        <p id="total-debt">$0</p>
+    </div>
+
+    <div id="amount-display">$0</div>
+    <p id="msg">Generate an amount to begin...</p>
+
+    <div class="coin-box">
+        <div id="pig-coin">🐷</div>
+    </div>
+
+    <div class="controls">
+        <button id="spinBtn" class="btn-spin" onclick="runCounter()">GENERATE STAKES</button>
+        <button id="flipBtn" class="btn-flip" onclick="flipPig()">FLIP THE COIN</button>
+    </div>
+
+    <div id="pay-section" class="pay-section">
+        <a id="venmo-link" class="pay-btn venmo-btn" href="#">SETTLE VIA VENMO</a>
+        <a id="crypto-link" class="pay-btn crypto-btn" href="#">SETTLE VIA CRYPTO WALLET</a>
+        <div class="copy-info" onclick="copyAddress()">Copy USDC Base Address</div>
+    </div>
+
+    <div id="history">
+        <p><b>Recent Losses:</b></p>
+        <div id="history-list"></div>
+        <button class="btn-reset" onclick="resetGame()">Reset Debt</button>
+    </div>
+
+    <script>
+        const venmoUser = "outcastjaxton";
+        const usdcAddress = "0x7a890107E81851d17D8899E6784386d57EdcF141"; 
+
+        let currentAmount = 0;
+        let totalDebt = 0;
+
+        function runCounter() {
+            const amountEl = document.getElementById('amount-display');
+            const spinBtn = document.getElementById('spinBtn');
+            const flipBtn = document.getElementById('flipBtn');
+            const msg = document.getElementById('msg');
+            const paySection = document.getElementById('pay-section');
+            
+            spinBtn.disabled = true;
+            flipBtn.style.display = "none";
+            paySection.style.display = "none";
+            msg.innerText = "Selecting random amount...";
+
+            let count = 0;
+            let interval = setInterval(() => {
+                let temp = (Math.floor(Math.random() * 30) + 1) * 5;
+                amountEl.innerText = "$" + temp;
+                count++;
+
+                if (count > 20) {
+                    clearInterval(interval);
+                    currentAmount = temp;
+                    msg.innerText = "Pig Face = Safe | Pig Butt = Pay!";
+                    flipBtn.style.display = "block";
+                    spinBtn.disabled = false;
+                }
+            }, 50);
+        }
+
+        function flipPig() {
+            const coin = document.getElementById('pig-coin');
+            const flipBtn = document.getElementById('flipBtn');
+            const totalDebtEl = document.getElementById('total-debt');
+            const msg = document.getElementById('msg');
+            
+            flipBtn.disabled = true;
+            coin.style.transform = "rotateY(1440deg)"; 
+
+            setTimeout(() => {
+                // BIAS LOGIC: 58% chance of "Butt" (Tails/Loss)
+                const isLoss = Math.random() < 0.58;
+                coin.style.transform = "rotateY(0deg)";
+                
+                if (!isLoss) {
+                    coin.innerText = "🐷";
+                    msg.innerText = "SAFE! The pig showed mercy.";
+                } else {
+                    coin.innerText = "🍑";
+                    totalDebt += currentAmount;
+                    totalDebtEl.innerText = "$" + totalDebt;
+                    msg.innerText = "Ouch! You owe $" + currentAmount;
+                    addToHistory(currentAmount);
+                }
+                
+                updatePaymentLinks();
+                flipBtn.style.display = "none";
+                flipBtn.disabled = false;
+            }, 600);
+        }
+
+        function updatePaymentLinks() {
+            const paySection = document.getElementById('pay-section');
+            if (totalDebt > 0) {
+                const vNote = encodeURIComponent("small business support");
+                document.getElementById('venmo-link').href = `venmo://paycharge?txn=pay&recipients=${venmoUser}&amount=${totalDebt}&note=${vNote}`;
+                const cryptoURI = `ethereum:${usdcAddress}@8453/transfer?address=${usdcAddress}&uint256=${totalDebt}e6`;
+                document.getElementById('crypto-link').href = cryptoURI;
+                document.getElementById('crypto-link').innerHTML = `PAY ${totalDebt} USDC (BASE)`;
+                paySection.style.display = "flex";
+            }
+        }
+
+        function addToHistory(amt) {
+            const list = document.getElementById('history-list');
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.innerHTML = `<span>Unlucky Spin</span> <span>$${amt}</span>`;
+            list.prepend(item);
+        }
+
+        function copyAddress() {
+            navigator.clipboard.writeText(usdcAddress);
+            alert("USDC Base Address Copied!");
+        }
+
+        function resetGame() {
+            if (confirm("Clear your current debt tally?")) {
+                totalDebt = 0;
+                document.getElementById('total-debt').innerText = "$0";
+                document.getElementById('history-list').innerHTML = "";
+                document.getElementById('amount-display').innerText = "$0";
+                document.getElementById('pay-section').style.display = "none";
+                document.getElementById('msg').innerText = "Game Reset.";
+            }
+        }
+    </script>
+</body>
+</html>
